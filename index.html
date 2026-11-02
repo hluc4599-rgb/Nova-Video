@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova Video — Xem video</title>
+<style>
+:root{color-scheme:dark;--bg:#090d18;--panel:#111827;--line:#253149;--accent:#7c5cff;--text:#eef2ff;--muted:#9aa7c2}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#18213b 0,#090d18 55%);font:16px system-ui,-apple-system,sans-serif;color:var(--text);min-height:100vh}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px clamp(16px,4vw,42px);border-bottom:1px solid #202a40}
+.brand{font-size:1.3rem;font-weight:800;letter-spacing:.4px}.brand span{color:#9c87ff}
+header small{color:var(--muted)}
+main{max-width:1100px;margin:28px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+.panel{background:rgba(17,24,39,.9);border:1px solid var(--line);border-radius:18px;padding:16px}
+.video-wrap{background:#000;border-radius:12px;overflow:hidden;aspect-ratio:16/9;display:grid;place-items:center}
+video{width:100%;height:100%;object-fit:contain}
+h2{font-size:1.05rem;margin:16px 0 6px;overflow-wrap:anywhere}
+p{color:var(--muted);font-size:.9rem;margin:6px 0 14px}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+button,.upload-label{border:1px solid #384662;background:#1b2740;color:var(--text);padding:10px 14px;border-radius:10px;font-weight:650;cursor:pointer}
+button:hover,.upload-label:hover{border-color:var(--accent);background:#252e4b}
+.primary{background:var(--accent);border-color:var(--accent)}
+input[type=file]{display:none}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.side-head h3{margin:0;font-size:1rem}
+#playlist{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:8px}
+#playlist li{border:1px solid var(--line);padding:10px;border-radius:10px;color:var(--muted);overflow-wrap:anywhere;cursor:pointer}
+#playlist li.active{border-color:var(--accent);background:#211d3c;color:var(--text)}
+.empty{border:1px dashed #384662;border-radius:12px;padding:20px;text-align:center;color:var(--muted);margin-top:14px}
+.note{font-size:.78rem;margin-top:18px}
+@media(max-width:760px){main{grid-template-columns:1fr}.panel{padding:12px}header small{display:none}}
+</style>
+</head>
+<body>
+<header><div class="brand">NOVA <span>VIDEO</span></div><small>Trình phát video cá nhân • Không quảng cáo chèn</small></header>
+<main>
+<section class="panel">
+  <div class="video-wrap"><video id="player" controls playsinline preload="metadata"></video><iframe id="ytPlayer" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="display:none;width:100%;height:100%;border:0"></iframe></div>
+  <h2 id="title">Chọn video để bắt đầu</h2>
+  <p>Phát các video bạn đã có trên thiết bị. Trang này không chèn quảng cáo.</p>
+  <div class="controls">
+    <label class="upload-label primary" for="files">＋ Thêm video</label><input id="files" type="file" accept="video/*" multiple>
+    <input id="linkInput" type="url" placeholder="Dán link video / YouTube..." style="flex:1;min-width:190px;border:1px solid #384662;background:#0b1220;color:var(--text);padding:10px 12px;border-radius:10px">
+    <button id="addLink">Thêm bằng link</button>
+    <button id="prev">⏮ Trước</button><button id="next">Tiếp ⏭</button>
+    <button id="clear">Xóa danh sách</button>
+  </div>
+  <p class="note">Video được mở trực tiếp từ thiết bị của bạn; trang không tải video lên máy chủ.</p>
+</section>
+<aside class="panel">
+  <div class="side-head"><h3>Danh sách phát</h3><span id="count">0 video</span></div>
+  <div id="empty" class="empty">Danh sách đang trống.<br>Nhấn “Thêm video” để chọn file.</div>
+  <ul id="playlist"></ul>
+</aside>
+</main>
+<script>
+const player=document.querySelector('#player'), ytPlayer=document.querySelector('#ytPlayer'), filesInput=document.querySelector('#files');
+const playlist=document.querySelector('#playlist'), title=document.querySelector('#title');
+const count=document.querySelector('#count'), empty=document.querySelector('#empty');
+let items=[], current=-1;
+function render(){
+ playlist.innerHTML=''; count.textContent=items.length+' video'; empty.style.display=items.length?'none':'block';
+ items.forEach((item,i)=>{const li=document.createElement('li');li.textContent=(i+1)+'. '+item.name;
+ if(i===current)li.classList.add('active');li.onclick=()=>play(i);playlist.appendChild(li);});
+}
+function youtubeId(url){
+ try{
+  const u=new URL(url);
+  if(u.hostname==='youtu.be')return u.pathname.slice(1);
+  if(u.hostname.includes('youtube.com')){
+   if(u.pathname==='/watch')return u.searchParams.get('v');
+   if(u.pathname.startsWith('/embed/'))return u.pathname.split('/')[2];
+   if(u.pathname.startsWith('/shorts/'))return u.pathname.split('/')[2];
+  }
+ }catch(e){}
+ return null;
+}
+function play(i){
+ if(i<0||i>=items.length)return;current=i;const item=items[i];
+ title.textContent=item.name;
+ if(item.kind==='youtube'){
+  player.pause();player.removeAttribute('src');player.load();player.style.display='none';
+  ytPlayer.style.display='block';ytPlayer.src='https://www.youtube-nocookie.com/embed/'+item.id+'?autoplay=1&rel=0';
+ }else{
+  ytPlayer.src='';ytPlayer.style.display='none';player.style.display='block';
+  player.src=item.url;player.load();player.play().catch(()=>{});
+ }
+ render();
+}
+filesInput.addEventListener('change',e=>{
+ for(const file of e.target.files){if(file.type.startsWith('video/'))items.push({name:file.name,url:URL.createObjectURL(file),kind:'file'});}
+ if(current===-1&&items.length)play(0);else render();filesInput.value='';
+});
+document.querySelector('#addLink').onclick=()=>{
+ const input=document.querySelector('#linkInput'), url=input.value.trim();if(!url)return;
+ const id=youtubeId(url);
+ if(id){items.push({name:'YouTube • '+id,kind:'youtube',id});}
+ else if(/^https?:\/\//i.test(url)){items.push({name:url.split('/').pop().split('?')[0]||'Video từ link',url,kind:'direct'});}
+ else {alert('Link không hợp lệ. Hãy dán link YouTube hoặc link video trực tiếp (MP4/WebM).');return;}
+ input.value='';if(current===-1)play(0);else render();
+};
+document.querySelector('#prev').onclick=()=>{if(items.length)play((current-1+items.length)%items.length);};
+document.querySelector('#next').onclick=()=>{if(items.length)play((current+1)%items.length);};
+player.addEventListener('ended',()=>{if(current<items.length-1)play(current+1);});
+document.querySelector('#clear').onclick=()=>{
+ items.forEach(x=>{if(x.kind==='file')URL.revokeObjectURL(x.url);});items=[];current=-1;
+ player.pause();player.removeAttribute('src');player.load();ytPlayer.src='';ytPlayer.style.display='none';player.style.display='block';
+ title.textContent='Chọn video để bắt đầu';render();
+};
+render();
+</script>
+</body>
+</html>
